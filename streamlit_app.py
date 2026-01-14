@@ -1,15 +1,19 @@
 import streamlit as st
 import requests
 import pandas as pd
-import matplotlib.pyplot as plt
-import japanize_matplotlib
-from mpl_toolkits.mplot3d import Axes3D
+import pydeck as pdk
 
-# --- ページ設定 ---
-st.set_page_config(page_title="九州気温 3D Viewer", layout="wide")
-st.title("九州主要都市の現在の気温 3Dプロット")
+# --- 1. ページの設定 ---
+st.set_page_config(
+    page_title="九州気温 3D Visualizer",
+    page_icon="🌡️",
+    layout="wide"
+)
 
-# 九州7県のデータ
+st.title("🌡️ 九州主要都市の気温 3Dカラムマップ")
+st.markdown("Open-Meteo APIから取得した現在の気温を、柱の高さと色で可視化しています。")
+
+# 九州7県の県庁所在地データ
 kyushu_capitals = {
     'Fukuoka':    {'lat': 33.5904, 'lon': 130.4017},
     'Saga':       {'lat': 33.2494, 'lon': 130.2974},
@@ -20,8 +24,8 @@ kyushu_capitals = {
     'Kagoshima':  {'lat': 31.5600, 'lon': 130.5580}
 }
 
-# --- データ取得関数（キャッシュを利用） ---
-@st.cache_data(ttl=600)  # 10分間データをキャッシュ
+# --- 2. データ取得関数（キャッシュ機能付き） ---
+@st.cache_data(ttl=600)  # 10分間データを保持
 def fetch_weather_data():
     weather_info = []
     BASE_URL = 'https://api.open-meteo.com/v1/forecast'
@@ -36,121 +40,84 @@ def fetch_weather_data():
             response = requests.get(BASE_URL, params=params)
             response.raise_for_status()
             data = response.json()
+            
+            temp = data['current']['temperature_2m']
             weather_info.append({
                 'City': city,
-                'Latitude': coords['lat'],
-                'Longitude': coords['lon'],
-                'Temperature': data['current']['temperature_2m']
+                'lat': coords['lat'],
+                'lon': coords['lon'],
+                'Temperature': temp
             })
         except Exception as e:
-            st.error(f"Error fetching {city}: {e}")
+            st.error(f"{city}のデータ取得に失敗しました: {e}")
             
     return pd.DataFrame(weather_info)
 
-# データの取得
-with st.spinner('最新の気温データを取得中...'):
+# --- 3. ロジック実行 ---
+with st.spinner('最新の気象データを取得中...'):
     df = fetch_weather_data()
 
-# --- メインコンテンツ ---
+# --- 4. 可視化用の計算 ---
+# 柱の高さ（気温1度につき 3,000メートル）
+df['elevation'] = df['Temperature'] * 3000
+
+# 気温に応じた色の計算関数
+def get_color(t):
+    # 低温（5度以下）で青、高温（35度以上）で赤になるように正規化
+    r = int(min(255, max(0, (t - 5) * 8.5)))  
+    b = int(min(255, max(0, (35 - t) * 8.5)))
+    g = 50  # 緑は控えめに
+    return [r, g, b, 200]  # RGBA形式
+
+df['color'] = df['Temperature'].apply(get_color)
+
+# --- 5. メイン画面のレイアウト ---
 col1, col2 = st.columns([1, 2])
 
 with col1:
-    st.subheader("取得したデータ")
-    st.dataframe(df, use_container_width=True)
+    st.subheader("📊 現在の気温データ")
+    # 表を見やすく整形
+    display_df = df[['City', 'Temperature']].copy()
+    display_df.columns = ['都市名', '気温 (°C)']
+    st.dataframe(display_df.set_index('都市名'), use_container_width=True)
     
-    if st.button('データを更新'):
+    if st.button('🔄 データを更新'):
         st.cache_data.clear()
         st.rerun()
 
 with col2:
-    st.subheader("3D 可視化")
+    st.subheader("📍 3D マップビュー")
     
-    # Matplotlib の描画設定
-    fig = plt.figure(figsize=(10, 8))
-    ax = fig.add_subplot(111, projection='3d')
-
-    # --- データを色付きでプロット ---
-    scatter = ax.scatter(
-        df['Longitude'], 
-        df['Latitude'], 
-        df['Temperature'], 
-        c=df['Temperature'], 
-        cmap='viridis', 
-        s=300,        
-        depthshade=True
+    # Pydeckによる3D地図の設定
+    view_state = pdk.ViewState(
+        latitude=32.7,
+        longitude=131.0,
+        zoom=6.0,
+        pitch=50,   # 傾き
+        bearing=-10 # 回転
     )
 
-    # 垂直線の追加とラベル表示
-    z_min = df['Temperature'].min() - 5
-    for i in range(len(df)):
-        lon, lat, tempe, city = df.iloc[i][['Longitude', 'Latitude', 'Temperature', 'City']]
-        
-        ax.plot([lon, lon], [lat, lat], [tempe, z_min], color='gray', linestyle='--', linewidth=1, alpha=0.6)
-        ax.text(lon, lat, z_min, f'{city}\n({tempe:.1f}°C)', size=8, ha='center', va='top')
+    layer = pdk.Layer(
+        "ColumnLayer",
+        data=df,
+        get_position='[lon, lat]',
+        get_elevation='elevation',
+        radius=12000,           # 柱の太さ（メートル）
+        get_fill_color='color', # 計算した色を適用
+        pickable=True,
+        auto_highlight=True,
+    )
 
-    # ラベルとタイトルの設定
-    ax.set_xlabel('経度 (Longitude)')
-    ax.set_ylabel('緯度 (Latitude)')
-    ax.set_zlabel('気温 (°C)')
-    ax.set_zlim(z_min, df['Temperature'].max() + 5)
-    
-    # カラーバー
-    cbar = fig.colorbar(scatter, ax=ax, pad=0.1, shrink=0.5)
-    cbar.set_label('気温 (°C)')
+    st.pydeck_chart(pdk.Deck(
+        layers=[layer],
+        initial_view_state=view_state,
+        map_style="mapbox://styles/mapbox/dark-v10", # ダークモードで見やすく
+        tooltip={
+            "html": "<b>{City}</b><br>気温: {Temperature} °C",
+            "style": {"color": "white", "backgroundColor": "#2c3e50"}
+        }
+    ))
 
-    # 視点の調整
-    ax.view_init(elev=20, azim=-75)
-
-    # Streamlitに表示
-    st.pyplot(fig)
-
-# --- 地図表示 ---
+# --- 6. 補足情報 ---
 st.divider()
-st.subheader("地図上での位置確認")
-
-# 列名を明示的に指定してエラーを回避
-# st.map(df, latitude='Latitude', longitude='Longitude')
-
-
-
-import pydeck as pdk
-
-# --- DeckGL による 3D 地図表示 ---
-st.divider()
-st.subheader("3D カラムマップ (気温を高さで表現)")
-
-# 気温に基づいて柱の高さを計算（例：1度 = 2000メートル）
-df['temp_height'] = df['Temperature'] * 2000 
-
-# 地図の設定
-view_state = pdk.ViewState(
-    latitude=32.7,
-    longitude=130.5,
-    zoom=6,
-    pitch=45, # 傾き
-)
-
-# 3Dカラムレイヤーの設定
-layer = pdk.Layer(
-    "ColumnLayer",
-    data=df,
-    get_position='[Longitude, Latitude]',
-    get_elevation='temp_height', # 高さ
-    radius=10000,                # 柱の太さ
-    get_fill_color='[255, (255 - Temperature * 5), 0, 150]', # 温度が高いほど赤く
-    pickable=True,
-    auto_highlight=True,
-)
-
-# ツールチップ（ホバー時の表示）
-tooltip = {
-    "html": "<b>{City}</b><br>気温: {Temperature}°C",
-    "style": {"color": "white"}
-}
-
-# 描画
-st.pydeck_chart(pdk.Deck(
-    layers=[layer],
-    initial_view_state=view_state,
-    tooltip=tooltip
-))
+st.caption("Data source: Open-Meteo.com (Free Weather API)")
