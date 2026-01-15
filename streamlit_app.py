@@ -35,8 +35,8 @@ japan_cities = {
 cities = japan_cities if show_all else kyushu_capitals
 
 # --- データ取得関数 ---
-@st.cache_data(ttl=600)
-def fetch_weather_data():
+@st.cache_data(ttl=300)
+def fetch_weather_data(cities):
     weather_info = []
     BASE_URL = 'https://api.open-meteo.com/v1/forecast'
     
@@ -65,7 +65,7 @@ def fetch_weather_data():
 
 # データの取得
 with st.spinner('最新の気温データを取得中...'):
-    df = fetch_weather_data()
+    df = fetch_weather_data(cities)
 
 
 # 気温を高さ（メートル）に変換（例：1度 = 3000m）
