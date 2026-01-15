@@ -38,8 +38,10 @@ def fetch_weather_data():
                 'City': city,
                 'lat': coords['lat'],
                 'lon': coords['lon'],
-                'Temperature': data['current']['temperature_2m']
+                'Temperature': data['current']['temperature_2m'],
+                'Time': data['current']['time']   # ← 追加
             })
+
         except Exception as e:
             st.error(f"Error fetching {city}: {e}")
             
