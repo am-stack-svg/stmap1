@@ -50,6 +50,16 @@ def fetch_weather_data():
 with st.spinner('最新の気温データを取得中...'):
     df = fetch_weather_data()
 
+scale = st.slider(
+    "高さスケール（1℃あたり）",
+    min_value=1000,
+    max_value=5000,
+    value=3000,
+    step=500
+)
+
+df['elevation'] = df['Temperature'] * scale
+
 # 気温を高さ（メートル）に変換（例：1度 = 3000m）
 df['elevation'] = df['Temperature'] * 3000
 
