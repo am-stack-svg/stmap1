@@ -74,13 +74,17 @@ df['elevation'] = df['Temperature'] * 3000
 #改善
 def temp_color(t):
     if t < 10:
-        return [0, 120, 255, 180]   # 青
+        return "rgba(0,120,255,180)"
     elif t < 20:
-        return [255, 200, 0, 180]   # 黄
+        return "rgba(255,200,0,180)"
     else:
-        return [255, 80, 80, 180]   # 赤
+        return "rgba(255,80,80,180)"
+
 
 df['color'] = df['Temperature'].apply(temp_color)
+
+get_fill_color='color'
+
 
 #改善
 now_jst = datetime.now(timezone.utc) + timedelta(hours=9)
