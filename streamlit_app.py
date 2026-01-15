@@ -64,7 +64,7 @@ def fetch_weather_data():
 # データの取得
 with st.spinner('最新の気温データを取得中...'):
     df = fetch_weather_data()
-
+from datetime import timedelta
 df['Time_JST'] = pd.to_datetime(df['Time']) + timedelta(hours=9)
 
 # 気温を高さ（メートル）に変換（例：1度 = 3000m）
