@@ -53,6 +53,34 @@ with st.spinner('最新の気温データを取得中...'):
 
 # 気温を高さ（メートル）に変換（例：1度 = 3000m）
 df['elevation'] = df['Temperature'] * scale
+
+# データ取得
+with st.spinner('最新の気温データを取得中...'):
+    df = fetch_weather_data()
+
+# --- メインレイアウト ---
+col1, col2 = st.columns([1, 2])
+
+with col1:
+    st.subheader("取得したデータ")
+
+    scale = st.slider(
+        "カラム高さ倍率（1℃あたり）",
+        min_value=1000,
+        max_value=5000,
+        step=500,
+        value=3000
+    )
+
+    st.dataframe(df[['City', 'Temperature', 'Time']], use_container_width=True)
+
+    if st.button('データを更新'):
+        st.cache_data.clear()
+        st.rerun()
+
+# 👇 ここで初めて計算する
+df['elevation'] = df['Temperature'] * scale
+
 df['color'] = df['Temperature'].apply(
     lambda t: [100, min(255, int(100 + t * 5)), 255, 180]
 )
