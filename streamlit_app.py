@@ -6,7 +6,7 @@ import pydeck as pdk
 from datetime import datetime, timezone, timedelta    
 # --- ページ設定 ---
 st.set_page_config(page_title="九州気温 3D Map", layout="wide")
-st.title("九州主要都市の現在の気温 3Dカラムマップ")
+st.title("日本主要都市の現在の気温 3Dカラムマップ")
 #改善
 show_all = st.checkbox("全国主要都市を表示する", value=False)
 
@@ -67,20 +67,19 @@ def fetch_weather_data(cities):
 with st.spinner('最新の気温データを取得中...'):
     df = fetch_weather_data(cities)
 
+def temp_color(t):
+    if t < 10:
+        return [0, 120, 255, 180]     # 青（寒い）
+    elif t < 20:
+        return [255, 200, 0, 180]     # 黄（涼しい）
+    else:
+        return [255, 80, 80, 180]     # 赤（暑い）
+
+df['color'] = df['Temperature'].apply(temp_color)
+
 
 # 気温を高さ（メートル）に変換（例：1度 = 3000m）
 df['elevation'] = df['Temperature'] * 3000
-
-#改善
-def temp_color(t):
-    if t < 10:
-        return "rgba(0,120,255,180)"
-    elif t < 20:
-        return "rgba(255,200,0,180)"
-    else:
-        return "rgba(255,80,80,180)"
-
-df['color'] = df['Temperature'].apply(temp_color)
 
 
 
