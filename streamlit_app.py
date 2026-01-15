@@ -2,10 +2,13 @@ import streamlit as st
 import requests
 import pandas as pd
 import pydeck as pdk
-
+#改善
+from datetime import datetime, timezone, timedelta    
 # --- ページ設定 ---
 st.set_page_config(page_title="九州気温 3D Map", layout="wide")
 st.title("九州主要都市の現在の気温 3Dカラムマップ")
+#改善
+show_all = st.checkbox("全国主要都市を表示する", value=False)
 
 # 九州7県のデータ
 kyushu_capitals = {
