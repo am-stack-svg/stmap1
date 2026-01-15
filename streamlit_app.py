@@ -26,7 +26,7 @@ def fetch_weather_data():
     
     for city, coords in kyushu_capitals.items():
         params = {
-            'latitude':  coords['lat'],
+            'latitude': coords['lat'],
             'longitude': coords['lon'],
             'current': 'temperature_2m'
         }
@@ -39,9 +39,8 @@ def fetch_weather_data():
                 'lat': coords['lat'],
                 'lon': coords['lon'],
                 'Temperature': data['current']['temperature_2m'],
-                'Time': data['current']['time']   # ← 追加
+                'Time': data['current']['time']   # ★ 計測時刻
             })
-
         except Exception as e:
             st.error(f"Error fetching {city}: {e}")
             
@@ -52,56 +51,17 @@ with st.spinner('最新の気温データを取得中...'):
     df = fetch_weather_data()
 
 # 気温を高さ（メートル）に変換（例：1度 = 3000m）
-df['elevation'] = df['Temperature'] * scale
-
-# データ取得
-with st.spinner('最新の気温データを取得中...'):
-    df = fetch_weather_data()
+df['elevation'] = df['Temperature'] * 3000
 
 # --- メインレイアウト ---
 col1, col2 = st.columns([1, 2])
 
 with col1:
     st.subheader("取得したデータ")
-
-    scale = st.slider(
-        "カラム高さ倍率（1℃あたり）",
-        min_value=1000,
-        max_value=5000,
-        step=500,
-        value=3000
+    st.dataframe(
+        df[['City', 'Temperature', 'Time']],
+        use_container_width=True
     )
-
-    st.dataframe(df[['City', 'Temperature', 'Time']], use_container_width=True)
-
-    if st.button('データを更新'):
-        st.cache_data.clear()
-        st.rerun()
-
-# 👇 ここで初めて計算する
-df['elevation'] = df['Temperature'] * scale
-
-df['color'] = df['Temperature'].apply(
-    lambda t: [100, min(255, int(100 + t * 5)), 255, 180]
-)
-
-
-# --- メインレイアウト ---
-col1, col2 = st.columns([1, 2])
-
-with col1:
-    st.subheader("取得したデータ")
-
-    scale = st.slider(
-        "カラム高さ倍率（1℃あたり）",
-        min_value=1000,
-        max_value=5000,
-        step=500,
-        value=3000
-    )
-
-    st.dataframe(df[['City', 'Temperature']], use_container_width=True)
-
     
     if st.button('データを更新'):
         st.cache_data.clear()
@@ -115,29 +75,33 @@ with col2:
         latitude=32.7,
         longitude=131.0,
         zoom=6.2,
-        pitch=45,  # 地図を傾ける
+        pitch=45,
         bearing=0
     )
+
     layer = pdk.Layer(
-    "ColumnLayer",
-    data=df,
-    get_position='[lon, lat]',
-    get_elevation='elevation',
-    radius=12000,
-    get_fill_color='color',   # ← 追加した列を使用
-    pickable=True,
-    auto_highlight=True,
-)
-
-
-    
+        "ColumnLayer",
+        data=df,
+        get_position='[lon, lat]',
+        get_elevation='elevation',
+        radius=12000,
+        get_fill_color='[120, 200, 255, 200]',  # ★ 丸い棒が明るい水色
+        pickable=True,
+        auto_highlight=True,
+    )
 
     # 描画
-    st.pydeck_chart(pdk.Deck(
-        layers=[layer],
-        initial_view_state=view_state,
-        tooltip={
-            "html": "<b>{City}</b><br>気温: {Temperature}°C",
-            "style": {"color": "white"}
-        }
-    ))
+    st.pydeck_chart(
+        pdk.Deck(
+            layers=[layer],
+            initial_view_state=view_state,
+            tooltip={
+                "html": (
+                    "<b>{City}</b><br>"
+                    "気温: {Temperature}°C<br>"
+                    "計測時刻: {Time}"
+                ),
+                "style": {"color": "white"}
+            }
+        )
+    )
