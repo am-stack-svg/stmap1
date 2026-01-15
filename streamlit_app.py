@@ -80,10 +80,8 @@ def temp_color(t):
     else:
         return "rgba(255,80,80,180)"
 
-
 df['color'] = df['Temperature'].apply(temp_color)
 
-get_fill_color='color'
 
 
 #改善
