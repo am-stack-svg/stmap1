@@ -22,7 +22,7 @@ japan_cities = {
 
 # --- 気温 → 色変換（青 → 赤） ---
 def temp_to_color(temp):
-    t = max(min(temp, 35), 0)  # 0〜35℃に制限
+    t = max(min(temp, 35), 0)
     r = int(255 * (t / 35))
     b = int(255 * (1 - t / 35))
     return [r, 80, b, 200]
@@ -44,7 +44,6 @@ def fetch_weather_data(hour):
             r = requests.get(BASE_URL, params=params)
             r.raise_for_status()
             data = r.json()
-
             temp = data["hourly"]["temperature_2m"][hour]
 
             records.append({
@@ -79,18 +78,16 @@ with col1:
         st.rerun()
 
 with col2:
-    st.subheader("3D 気温カラムマップ")
+    st.subheader("3D 気温カラムマップ（黒背景）")
 
-    # --- 地図視点 ---
     view_state = pdk.ViewState(
         latitude=36.0,
         longitude=138.0,
-        zoom=4.8,
+        zoom=5.0,
         pitch=45,
         bearing=0,
     )
 
-    # --- カラムレイヤー ---
     column_layer = pdk.Layer(
         "ColumnLayer",
         data=df,
@@ -102,24 +99,22 @@ with col2:
         auto_highlight=True,
     )
 
-    # --- 都市名テキストレイヤー ---
     text_layer = pdk.Layer(
         "TextLayer",
         data=df,
         get_position="[lon, lat]",
         get_text="City",
         get_size=16,
-        get_color=[0, 0, 0, 200],
+        get_color=[255, 255, 255, 220],  # 白文字
         get_text_anchor='"middle"',
         get_alignment_baseline='"bottom"',
         billboard=True,
     )
 
-    # --- デッキ描画 ---
     deck = pdk.Deck(
         layers=[column_layer, text_layer],
         initial_view_state=view_state,
-        map_style="mapbox://styles/mapbox/streets-v12",
+        map_style="mapbox://styles/mapbox/dark-v11",
         tooltip={
             "html": "<b>{City}</b><br>気温: {Temperature}℃",
             "style": {"color": "white"},
