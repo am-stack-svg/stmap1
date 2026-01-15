@@ -21,6 +21,19 @@ kyushu_capitals = {
     'Kagoshima':  {'lat': 31.5600, 'lon': 130.5580}
 }
 
+#改善
+japan_cities = {
+    'Sapporo': {'lat': 43.0642, 'lon': 141.3469},
+    'Tokyo': {'lat': 35.6895, 'lon': 139.6917},
+    'Nagoya': {'lat': 35.1815, 'lon': 136.9066},
+    'Osaka': {'lat': 34.6937, 'lon': 135.5023},
+    'Hiroshima': {'lat': 34.3853, 'lon': 132.4553},
+    'Fukuoka': {'lat': 33.5904, 'lon': 130.4017},
+    'Naha': {'lat': 26.2124, 'lon': 127.6809}
+}
+
+cities = japan_cities if show_all else kyushu_capitals
+
 # --- データ取得関数 ---
 @st.cache_data(ttl=600)
 def fetch_weather_data():
@@ -58,7 +71,19 @@ with st.spinner('最新の気温データを取得中...'):
 # 気温を高さ（メートル）に変換（例：1度 = 3000m）
 df['elevation'] = df['Temperature'] * 3000
 
+#改善
+def temp_color(t):
+    if t < 10:
+        return [0, 120, 255, 180]   # 青
+    elif t < 20:
+        return [255, 200, 0, 180]   # 黄
+    else:
+        return [255, 80, 80, 180]   # 赤
 
+df['color'] = df['Temperature'].apply(temp_color)
+
+#改善
+now_jst = datetime.now(timezone.utc) + timedelta(hours=9)
 
 # --- メインレイアウト ---
 col1, col2 = st.columns([1, 2])
