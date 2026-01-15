@@ -7,27 +7,27 @@ import pydeck as pdk
 st.set_page_config(page_title="全国気温 3D Map", layout="wide")
 st.title("全国主要都市の気温 3Dカラムマップ（時間変化対応）")
 
-# --- 全国主要都市（例） ---
+# --- 全国主要都市 ---
 japan_cities = {
-    'Sapporo':  {'lat': 43.0642, 'lon': 141.3469},
-    'Sendai':   {'lat': 38.2682, 'lon': 140.8694},
-    'Tokyo':    {'lat': 35.6895, 'lon': 139.6917},
-    'Nagoya':   {'lat': 35.1815, 'lon': 136.9066},
-    'Osaka':    {'lat': 34.6937, 'lon': 135.5023},
-    'Hiroshima':{'lat': 34.3853, 'lon': 132.4553},
-    'Fukuoka':  {'lat': 33.5904, 'lon': 130.4017},
-    'Kagoshima':{'lat': 31.5600, 'lon': 130.5580},
-    'Naha':     {'lat': 26.2124, 'lon': 127.6809},
+    "Sapporo":   {"lat": 43.0642, "lon": 141.3469},
+    "Sendai":    {"lat": 38.2682, "lon": 140.8694},
+    "Tokyo":     {"lat": 35.6895, "lon": 139.6917},
+    "Nagoya":    {"lat": 35.1815, "lon": 136.9066},
+    "Osaka":     {"lat": 34.6937, "lon": 135.5023},
+    "Hiroshima": {"lat": 34.3853, "lon": 132.4553},
+    "Fukuoka":   {"lat": 33.5904, "lon": 130.4017},
+    "Kagoshima": {"lat": 31.5600, "lon": 130.5580},
+    "Naha":      {"lat": 26.2124, "lon": 127.6809},
 }
 
-# --- 気温 → 色変換 ---
+# --- 気温 → 色変換（青 → 赤） ---
 def temp_to_color(temp):
     t = max(min(temp, 35), 0)  # 0〜35℃に制限
     r = int(255 * (t / 35))
     b = int(255 * (1 - t / 35))
     return [r, 80, b, 200]
 
-# --- データ取得 ---
+# --- 気象データ取得 ---
 @st.cache_data(ttl=600)
 def fetch_weather_data(hour):
     BASE_URL = "https://api.open-meteo.com/v1/forecast"
@@ -38,12 +38,13 @@ def fetch_weather_data(hour):
             "latitude": coords["lat"],
             "longitude": coords["lon"],
             "hourly": "temperature_2m",
-            "timezone": "Asia/Tokyo"
+            "timezone": "Asia/Tokyo",
         }
         try:
             r = requests.get(BASE_URL, params=params)
             r.raise_for_status()
             data = r.json()
+
             temp = data["hourly"]["temperature_2m"][hour]
 
             records.append({
@@ -52,7 +53,7 @@ def fetch_weather_data(hour):
                 "lon": coords["lon"],
                 "Temperature": temp,
                 "elevation": temp * 3000,
-                "color": temp_to_color(temp)
+                "color": temp_to_color(temp),
             })
 
         except Exception as e:
@@ -60,53 +61,69 @@ def fetch_weather_data(hour):
 
     return pd.DataFrame(records)
 
-# --- UI ---
+# --- UI（時間スライダー） ---
 hour = st.slider("時刻（0〜23時）", 0, 23, 12)
 
-with st.spinner("最新データ取得中..."):
+with st.spinner("最新の気温データを取得中..."):
     df = fetch_weather_data(hour)
 
 # --- レイアウト ---
 col1, col2 = st.columns([1, 2])
 
 with col1:
-    st.subheader("気温データ")
+    st.subheader("取得した気温データ")
     st.dataframe(df[["City", "Temperature"]], use_container_width=True)
 
-    if st.button("データ更新"):
+    if st.button("データを更新"):
         st.cache_data.clear()
         st.rerun()
 
 with col2:
     st.subheader("3D 気温カラムマップ")
 
+    # --- 地図視点 ---
     view_state = pdk.ViewState(
         latitude=36.0,
         longitude=138.0,
-        zoom=4.5,
+        zoom=4.8,
         pitch=45,
-        bearing=0
+        bearing=0,
     )
 
-    layer = pdk.Layer(
+    # --- カラムレイヤー ---
+    column_layer = pdk.Layer(
         "ColumnLayer",
         data=df,
-        get_position='[lon, lat]',
-        get_elevation='elevation',
+        get_position="[lon, lat]",
+        get_elevation="elevation",
         radius=20000,
-        get_fill_color='color',
+        get_fill_color="color",
         pickable=True,
-        auto_highlight=True
+        auto_highlight=True,
     )
 
+    # --- 都市名テキストレイヤー ---
+    text_layer = pdk.Layer(
+        "TextLayer",
+        data=df,
+        get_position="[lon, lat]",
+        get_text="City",
+        get_size=16,
+        get_color=[0, 0, 0, 200],
+        get_text_anchor='"middle"',
+        get_alignment_baseline='"bottom"',
+        billboard=True,
+    )
+
+    # --- デッキ描画 ---
     deck = pdk.Deck(
-        layers=[layer],
+        layers=[column_layer, text_layer],
         initial_view_state=view_state,
-        map_style="mapbox://styles/mapbox/light-v11",
+        map_style="mapbox://styles/mapbox/streets-v12",
         tooltip={
             "html": "<b>{City}</b><br>気温: {Temperature}℃",
-            "style": {"color": "white"}
-        }
+            "style": {"color": "white"},
+        },
     )
 
     st.pydeck_chart(deck)
